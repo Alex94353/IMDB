@@ -59,7 +59,7 @@ Dáta zo zdrojového datasetu (formát `.csv`) boli najprv nahraté do Snowflake
 
 #### Príklad kódu:
 ```sql
-CREATE OR REPLACE STAGE my_stage;
+CREATE OR REPLACE STAGE imdb_stage;
 ```
 Do stage boli následne nahraté súbory obsahujúce údaje o filmoch, režiséroch, žánroch, hercoch, hodnoteniach a ďalších entitách. Dáta boli importované do staging tabuliek pomocou príkazu `COPY INTO`. Pre každú tabuľku sa použil podobný príkaz:
 
