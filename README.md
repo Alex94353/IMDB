@@ -97,24 +97,40 @@ V prípade, že by bolo potrebné sledovať zmeny súvisiace s odvodenými atrib
 
 ```sql
 CREATE TABLE dim_date AS
-SELECT
-    ROW_NUMBER() OVER (ORDER BY CAST(timestamp AS DATE)) AS dim_dateID,
-    CAST(timestamp AS DATE) AS date,
-    DATE_PART(day, timestamp) AS day,
-    DATE_PART(dow, timestamp) + 1 AS dayOfWeek,
-    CASE DATE_PART(dow, timestamp) + 1
-        WHEN 1 THEN 'Pondelok'
-        WHEN 2 THEN 'Utorok'
-        WHEN 3 THEN 'Streda'
-        WHEN 4 THEN 'Štvrtok'
-        WHEN 5 THEN 'Piatok'
-        WHEN 6 THEN 'Sobota'
-        WHEN 7 THEN 'Nedeľa'
+SELECT DISTINCT
+    ROW_NUMBER() OVER (ORDER BY CAST(m.date_published AS DATE)) AS dim_date_id,
+    EXTRACT(DAY FROM m.date_published) AS day,
+    EXTRACT(DOW FROM m.date_published) + 1 AS dayOfWeek,
+    DATE_PART('week', m.date_published) AS week,
+    EXTRACT(MONTH FROM m.date_published) AS month,
+    EXTRACT(QUARTER FROM m.date_published) AS quarter,
+    EXTRACT(YEAR FROM m.date_published) AS year,
+    m.date_published AS timestamp,
+    CASE EXTRACT(DOW FROM m.date_published) + 1
+        WHEN 1 THEN 'Monday'
+        WHEN 2 THEN 'Tuesday'
+        WHEN 3 THEN 'Wednesday'
+        WHEN 4 THEN 'Thursday'
+        WHEN 5 THEN 'Friday'
+        WHEN 6 THEN 'Saturday'
+        WHEN 7 THEN 'Sunday'
     END AS dayOfWeekAsString,
-    DATE_PART(month, timestamp) AS month,
-    DATE_PART(year, timestamp) AS year,
-    DATE_PART(quarter, timestamp) AS quarter
-FROM ratings_staging;
+    CASE EXTRACT(MONTH FROM m.date_published)
+        WHEN 1 THEN 'January'
+        WHEN 2 THEN 'February'
+        WHEN 3 THEN 'March'
+        WHEN 4 THEN 'April'
+        WHEN 5 THEN 'May'
+        WHEN 6 THEN 'June'
+        WHEN 7 THEN 'July'
+        WHEN 8 THEN 'August'
+        WHEN 9 THEN 'September'
+        WHEN 10 THEN 'October'
+        WHEN 11 THEN 'November'
+        WHEN 12 THEN 'December'
+    END AS monthAsString
+FROM movie m
+WHERE m.date_published IS NOT NULL;
 ```
 Podobne `dim_movie` obsahuje informácie o filmoch, vrátane názvu, dátumu vydania, trvania, krajiny pôvodu, jazykov a produkčnej spoločnosti. Táto dimenzia je typu SCD Typ 0, pretože informácie o filmoch, ako názov, dátum vydania, trvanie a produkčná spoločnosť, sú považované za nemenné.
 
@@ -122,17 +138,25 @@ Faktová tabuľka `fact_ratings` obsahuje záznamy o hodnoteniach a prepojenia n
 ```sql
 CREATE TABLE fact_ratings AS
 SELECT
-  ROW_NUMBER() OVER (ORDER BY r.movie_id) AS fact_rating_id,
+  ROW_NUMBER() OVER (
+    ORDER BY
+      r.movie_id
+  ) AS fact_rating_id,
   r.movie_id AS dim_movie_id,
   n.dim_names_id,
   d.dim_date_id,
   t.dim_time_id
-FROM ratings AS r
-JOIN dim_movie AS m ON r.movie_id = m.dim_movie_id
-LEFT JOIN dim_names AS n ON r.movie_id = n.dim_names_id
-JOIN dim_date AS d ON CAST(m.date_published AS DATE) = d.timestamp
-LEFT JOIN dim_time AS t ON TO_CHAR(m.date_published, 'HH24:MI:SS') = t.timestamp
-WHERE r.movie_id IS NOT NULL;
+FROM
+  ratings AS r
+  JOIN dim_movie AS m ON r.movie_id = m.dim_movie_id
+  LEFT JOIN dim_names AS n ON r.movie_id = n.dim_names_id
+  JOIN dim_date AS d ON CAST(m.date_published AS DATE) = d.timestamp
+  LEFT JOIN dim_time AS t ON TO_CHAR(m.date_published, 'HH24:MI:SS') = t.timestamp
+WHERE
+  NOT r.movie_id IS NULL
+  AND NOT n.dim_names_id IS NULL
+  AND NOT d.dim_date_id IS NULL
+  AND NOT t.dim_time_id IS NULL;
 
 ```
 
