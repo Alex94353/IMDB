@@ -72,3 +72,68 @@ FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1);
 V prípade nekonzistentných záznamov bol použitý parameter `ON_ERROR = 'CONTINUE'`, ktorý zabezpečil pokračovanie procesu bez prerušenia pri chybách.
 
 ---
+### **3.2 Transfor (Transformácia dát)**
+
+V tejto fáze boli údaje z medzitabuliek vyčistené, transformované a obohatené. Hlavným cieľom bolo pripraviť dimenzie a faktovú tabuľku, ktoré umožňujú jednoduchú a efektívnu analýzu dát.
+
+Dimenzie boli navrhnuté na poskytovanie kontextu pre faktovú tabuľku. `dim_names` Zahŕňa informácie o osobách spojených s filmami (herci, režiséri a pod.), ako aj kategórie ich účasti. Dáta boli očistené od záznamov s chýbajúcimi hodnotami. Táto dimenzia je typu SCD 2, čo umožňuje sledovať historické zmeny v kategóriách účasti osôb (zmena hereckých rolí) umožňuje uchovávanie histórie.
+```sql
+CREATE TABLE dim_names AS
+SELECT DISTINCT
+    n.id AS dim_names_id,
+    n.name,
+    n.date_of_birth,
+    r.category
+FROM names n
+JOIN role_mapping r ON n.id = r.name_id
+WHERE n.id IS NOT NULL
+  AND n.name IS NOT NULL
+  AND n.date_of_birth IS NOT NULL
+  AND r.category IS NOT NULL;
+```
+Dimenzia `dim_date` je navrhnutá tak, aby uchováva údaje o dátumoch vydania filmov a obsahuje odvodené údaje, ako sú deň, mesiac, štvrťrok a rok. Pre jednoduchšiu analýzu sú pridané textové reprezentácie dní v týždni a mesiacov. Táto dimenzia je klasifikovaná ako SCD Typ 0. To znamená, že existujúce záznamy v tejto dimenzii sú nemenné a uchovávajú statické informácie.
+
+V prípade, že by bolo potrebné sledovať zmeny súvisiace s odvodenými atribútmi (napr. pracovné dni vs. sviatky), bolo by možné prehodnotiť klasifikáciu na SCD Typ 1 (aktualizácia hodnôt) alebo SCD Typ 2 (uchovávanie histórie zmien). V aktuálnom modeli však táto potreba neexistuje, preto je `dim_date` navrhnutá ako SCD Typ 0 s rozširovaním o nové záznamy podľa potreby.
+
+```sql
+CREATE TABLE dim_date AS
+SELECT
+    ROW_NUMBER() OVER (ORDER BY CAST(timestamp AS DATE)) AS dim_dateID,
+    CAST(timestamp AS DATE) AS date,
+    DATE_PART(day, timestamp) AS day,
+    DATE_PART(dow, timestamp) + 1 AS dayOfWeek,
+    CASE DATE_PART(dow, timestamp) + 1
+        WHEN 1 THEN 'Pondelok'
+        WHEN 2 THEN 'Utorok'
+        WHEN 3 THEN 'Streda'
+        WHEN 4 THEN 'Štvrtok'
+        WHEN 5 THEN 'Piatok'
+        WHEN 6 THEN 'Sobota'
+        WHEN 7 THEN 'Nedeľa'
+    END AS dayOfWeekAsString,
+    DATE_PART(month, timestamp) AS month,
+    DATE_PART(year, timestamp) AS year,
+    DATE_PART(quarter, timestamp) AS quarter
+FROM ratings_staging;
+```
+Podobne `dim_movie` obsahuje informácie o filmoch, vrátane názvu, dátumu vydania, trvania, krajiny pôvodu, jazykov a produkčnej spoločnosti. Táto dimenzia je typu SCD Typ 0, pretože informácie o filmoch, ako názov, dátum vydania, trvanie a produkčná spoločnosť, sú považované za nemenné.
+
+Faktová tabuľka `fact_ratings` obsahuje záznamy o hodnoteniach a prepojenia na všetky dimenzie. Obsahuje kľúčové metriky, ako je hodnota hodnotenia a časový údaj.
+```sql
+CREATE TABLE fact_ratings AS
+SELECT
+  ROW_NUMBER() OVER (ORDER BY r.movie_id) AS fact_rating_id,
+  r.movie_id AS dim_movie_id,
+  n.dim_names_id,
+  d.dim_date_id,
+  t.dim_time_id
+FROM ratings AS r
+JOIN dim_movie AS m ON r.movie_id = m.dim_movie_id
+LEFT JOIN dim_names AS n ON r.movie_id = n.dim_names_id
+JOIN dim_date AS d ON CAST(m.date_published AS DATE) = d.timestamp
+LEFT JOIN dim_time AS t ON TO_CHAR(m.date_published, 'HH24:MI:SS') = t.timestamp
+WHERE r.movie_id IS NOT NULL;
+
+```
+
+---
