@@ -161,3 +161,18 @@ WHERE
 ```
 
 ---
+### **3.3 Load (Načítanie dát)**
+
+Po úspešnom vytvorení dimenzií, faktovej tabuľky a mostovej tabuľky boli dáta nahraté do finálnej štruktúry.
+Pre optimalizáciu využitia úložiska boli dočasné staging tabuľky odstránené:
+
+```sql
+DROP TABLE IF EXISTS director_mapping;
+DROP TABLE IF EXISTS genre;
+DROP TABLE IF EXISTS movie;
+DROP TABLE IF EXISTS names;
+DROP TABLE IF EXISTS ratings;
+DROP TABLE IF EXISTS role_mapping;
+```
+
+ETL proces umožnil transformáciu pôvodných dát z .csv formátov do viacdimenzionálneho modelu typu hviezda. Proces zahŕňal čistenie, obohacovanie a reorganizáciu údajov z filmovej databázy. Výsledná štruktúra umožňuje efektívnu analýzu filmových hodnotení, rolí režisérov, hereckého obsadenia a ďalších kľúčových metadát. Tento model poskytuje spoľahlivý základ pre tvorbu vizualizácií a reportov, ktoré podporujú lepšie pochopenie trendov a preferencií divákov.
