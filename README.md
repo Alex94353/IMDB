@@ -76,97 +76,51 @@ V prípade nekonzistentných záznamov bol použitý parameter `ON_ERROR = 'CONT
 
 V tejto fáze boli údaje z medzitabuliek vyčistené, transformované a obohatené. Hlavným cieľom bolo pripraviť dimenzie a faktovú tabuľku, ktoré umožňujú jednoduchú a efektívnu analýzu dát.
 
-Dimenzia dim_names bola vytvorená na poskytovanie kontextu pre faktovú tabuľku a zahŕňa informácie o menách, dátumoch narodenia a kategóriách osôb podľa ich pohlavia. 
-Dáta boli očistené od záznamov s chýbajúcimi hodnotami. Kategorizácia pohlaví bola zabezpečená pomocou podmienok, kde boli jednotlivé kategórie `actor` a `actress` prevedené na hodnoty `male` a `female`. 
-Pre ostatné prípady bola definovaná hodnota another.
+Dimenzia dim_names bola vytvorená na poskytovanie kontextu pre faktovú tabuľku a zahŕňa informácie o menách, dátumoch narodenia a kategóriách osôb podľa ich pohlavia. Dáta boli očistené od záznamov s chýbajúcimi hodnotami. Kategorizácia pohlaví bola zabezpečená pomocou podmienok, kde boli jednotlivé kategórie actor a actress prevedené na hodnoty male a female. Pre ostatné prípady bola definovaná hodnota another.
 
 Táto dimenzia je typu SCD 1, čo znamená, že aktuálne dáta sa v prípade zmien jednoducho aktualizujú bez zachovania historických záznamov.
 ```sql
 DROP TABLE IF EXISTS dim_names;
 CREATE TABLE dim_names AS
-SELECT DISTINCT
-    n.id AS dim_names_id,
-    n.name,
-    n.date_of_birth,
-    CASE 
-        WHEN r.category = 'actor' THEN 'male'
-        WHEN r.category = 'actress' THEN 'female'
-        ELSE 'another'
-    END AS gender
+SELECT
+  n.id AS dim_names_id,
+  n.name,
+  n.date_of_birth,
+  COALESCE(r.category, 'director') AS category,
+  SPLIT(n.known_for_movies, ',') AS known_for_movies
 FROM names n
-JOIN role_mapping r ON n.id = r.name_id
+LEFT JOIN role_mapping r ON n.id = r.name_id
 WHERE n.id IS NOT NULL
   AND n.name IS NOT NULL
   AND n.date_of_birth IS NOT NULL
-  AND r.category IS NOT NULL;
+  AND n.known_for_movies IS NOT NULL;
 ```
-Dimenzia `dim_date` je navrhnutá tak, aby uchováva údaje o dátumoch vydania filmov a obsahuje odvodené údaje, ako sú deň, mesiac, štvrťrok a rok. Pre jednoduchšiu analýzu sú pridané textové reprezentácie dní v týždni a mesiacov. Táto dimenzia je klasifikovaná ako SCD Typ 0. To znamená, že existujúce záznamy v tejto dimenzii sú nemenné a uchovávajú statické informácie.
 
-V prípade, že by bolo potrebné sledovať zmeny súvisiace s odvodenými atribútmi (napr. pracovné dni vs. sviatky), bolo by možné prehodnotiť klasifikáciu na SCD Typ 1 (aktualizácia hodnôt) alebo SCD Typ 2 (uchovávanie histórie zmien). V aktuálnom modeli však táto potreba neexistuje, preto je `dim_date` navrhnutá ako SCD Typ 0 s rozširovaním o nové záznamy podľa potreby.
+Podobne, dim_movie obsahuje informácie o filmoch, vrátane názvu, dátumu vydania, trvania, krajiny pôvodu, jazykov a produkčnej spoločnosti. Táto dimenzia je typu SCD Typ 0, pretože informácie o filmoch, ako názov, dátum vydania, trvanie a produkčná spoločnosť, sú považované za nemenné.
 
+Faktová tabuľka fact_ratings obsahuje záznamy o hodnoteniach a prepojenia na všetky dimenzie. Obsahuje kľúčové metriky, ako sú priemerné hodnotenie, celkový počet hlasov a medián hodnotení, pričom tieto hodnoty sú spojované s dimenziami podľa príslušných kľúčov.
 ```sql
-CREATE TABLE dim_date AS
-SELECT DISTINCT
-    ROW_NUMBER() OVER (ORDER BY CAST(m.date_published AS DATE)) AS dim_date_id,
-    EXTRACT(DAY FROM m.date_published) AS day,
-    EXTRACT(DOW FROM m.date_published) + 1 AS dayOfWeek,
-    DATE_PART('week', m.date_published) AS week,
-    EXTRACT(MONTH FROM m.date_published) AS month,
-    EXTRACT(QUARTER FROM m.date_published) AS quarter,
-    EXTRACT(YEAR FROM m.date_published) AS year,
-    m.date_published AS timestamp,
-    CASE EXTRACT(DOW FROM m.date_published) + 1
-        WHEN 1 THEN 'Monday'
-        WHEN 2 THEN 'Tuesday'
-        WHEN 3 THEN 'Wednesday'
-        WHEN 4 THEN 'Thursday'
-        WHEN 5 THEN 'Friday'
-        WHEN 6 THEN 'Saturday'
-        WHEN 7 THEN 'Sunday'
-    END AS dayOfWeekAsString,
-    CASE EXTRACT(MONTH FROM m.date_published)
-        WHEN 1 THEN 'January'
-        WHEN 2 THEN 'February'
-        WHEN 3 THEN 'March'
-        WHEN 4 THEN 'April'
-        WHEN 5 THEN 'May'
-        WHEN 6 THEN 'June'
-        WHEN 7 THEN 'July'
-        WHEN 8 THEN 'August'
-        WHEN 9 THEN 'September'
-        WHEN 10 THEN 'October'
-        WHEN 11 THEN 'November'
-        WHEN 12 THEN 'December'
-    END AS monthAsString
-FROM movie m
-WHERE m.date_published IS NOT NULL;
-```
-Podobne `dim_movie` obsahuje informácie o filmoch, vrátane názvu, dátumu vydania, trvania, krajiny pôvodu, jazykov a produkčnej spoločnosti. Táto dimenzia je typu SCD Typ 0, pretože informácie o filmoch, ako názov, dátum vydania, trvanie a produkčná spoločnosť, sú považované za nemenné.
-
-Faktová tabuľka `fact_ratings` obsahuje záznamy o hodnoteniach a prepojenia na všetky dimenzie. Obsahuje kľúčové metriky, ako je hodnota hodnotenia a časový údaj.
-```sql
-CREATE TABLE fact_ratings AS
+DROP TABLE IF EXISTS fact_ratings;
+CREATE
+OR REPLACE TABLE fact_ratings AS
 SELECT
-  ROW_NUMBER() OVER (
-    ORDER BY
-      r.movie_id
-  ) AS fact_rating_id,
-  r.movie_id AS dim_movie_id,
-  n.dim_names_id,
-  d.dim_date_id,
-  t.dim_time_id
+  dm.dim_movie_id,
+  r.avg_rating,
+  r.total_votes,
+  r.median_rating,
+  n.dim_names_id
 FROM
   ratings AS r
-  JOIN dim_movie AS m ON r.movie_id = m.dim_movie_id
-  LEFT JOIN dim_names AS n ON r.movie_id = n.dim_names_id
-  JOIN dim_date AS d ON CAST(m.date_published AS DATE) = d.timestamp
-  LEFT JOIN dim_time AS t ON TO_CHAR(m.date_published, 'HH24:MI:SS') = t.timestamp
+  JOIN dim_movie AS dm ON r.movie_id = dm.dim_movie_id
+  JOIN bridge AS b ON dm.dim_movie_id = b.dim_movie_id
+  JOIN sdim_genre AS sg ON b.sdim_genre_id = sg.sdim_genre_id
+  JOIN dim_names AS n ON ARRAY_TO_STRING (n.known_for_movies, ',') LIKE '%' || dm.dim_movie_id || '%'
 WHERE
   NOT r.movie_id IS NULL
-  AND NOT n.dim_names_id IS NULL
-  AND NOT d.dim_date_id IS NULL
-  AND NOT t.dim_time_id IS NULL;
-
+  AND NOT r.avg_rating IS NULL
+  AND NOT r.total_votes IS NULL
+  AND NOT r.median_rating IS NULL
+  AND NOT n.dim_names_id IS NULL;
 ```
 
 ---
@@ -185,3 +139,13 @@ DROP TABLE IF EXISTS role_mapping;
 ```
 
 ETL proces umožnil transformáciu pôvodných dát z .csv formátov do viacdimenzionálneho modelu typu hviezda. Proces zahŕňal čistenie, obohacovanie a reorganizáciu údajov z filmovej databázy. Výsledná štruktúra umožňuje efektívnu analýzu filmových hodnotení, rolí režisérov, hereckého obsadenia a ďalších kľúčových metadát. Tento model poskytuje spoľahlivý základ pre tvorbu vizualizácií a reportov, ktoré podporujú lepšie pochopenie trendov a preferencií divákov.
+
+---
+## **4 Vizualizácia dát**
+Dashboard obsahuje **5 vizualizácií**, ktoré poskytujú základný prehľad o kľúčových metrikách a trendoch týkajúcich sa filmov, používateľov a hodnotení. Tieto vizualizácie odpovedajú na dôležité otázky a umožňujú lepšie pochopiť správanie používateľov a ich preferencie.
+
+<p align="center">
+  <img src="" alt="ERD Schema">
+  <br>
+  <em>Obrázok 3 Dashboard AmazonBooks datasetu</em>
+</p>
