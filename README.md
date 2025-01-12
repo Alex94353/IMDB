@@ -35,8 +35,6 @@ Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na **e
 Navrhnutý bol **hviezdicový model (star schema)**,ktorý je efektívny pre analytické spracovanie údajov. Centrálne miesto zaujíma faktová tabuľka **`fact_ratings`**, ktorá je prepojená s nasledujúcimi dimenziami:
 - **`dim_movie`**: Obsahuje podrobné informácie o knihách (názov, autor, rok vydania, vydavateľ).
 - **`dim_names`**: Obsahuje demografické údaje o používateľoch, ako sú vekové kategórie, pohlavie, povolanie a vzdelanie.
-- **`dim_date`**: Zahrňuje informácie o dátumoch hodnotení (deň, mesiac, rok, štvrťrok).
-- **`dim_time`**: Obsahuje podrobné časové údaje (hodina, AM/PM).
 - **`sdim_genre`**: Špecifikuje žánre filmov, čo umožňuje analýzu popularity podľa žánrov.
 - **`bridge`**: Prepojuje filmy a žánre, aby sa umožnilo mapovanie viacerých žánrov na jeden film.
 
