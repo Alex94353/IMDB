@@ -76,14 +76,23 @@ V prípade nekonzistentných záznamov bol použitý parameter `ON_ERROR = 'CONT
 
 V tejto fáze boli údaje z medzitabuliek vyčistené, transformované a obohatené. Hlavným cieľom bolo pripraviť dimenzie a faktovú tabuľku, ktoré umožňujú jednoduchú a efektívnu analýzu dát.
 
-Dimenzie boli navrhnuté na poskytovanie kontextu pre faktovú tabuľku. `dim_names` Zahŕňa informácie o osobách spojených s filmami (herci, režiséri a pod.), ako aj kategórie ich účasti. Dáta boli očistené od záznamov s chýbajúcimi hodnotami. Táto dimenzia je typu SCD 2, čo umožňuje sledovať historické zmeny v kategóriách účasti osôb (zmena hereckých rolí) umožňuje uchovávanie histórie.
+Dimenzia dim_names bola vytvorená na poskytovanie kontextu pre faktovú tabuľku a zahŕňa informácie o menách, dátumoch narodenia a kategóriách osôb podľa ich pohlavia. 
+Dáta boli očistené od záznamov s chýbajúcimi hodnotami. Kategorizácia pohlaví bola zabezpečená pomocou podmienok, kde boli jednotlivé kategórie `actor` a `actress` prevedené na hodnoty `male` a `female`. 
+Pre ostatné prípady bola definovaná hodnota another.
+
+Táto dimenzia je typu SCD 1, čo znamená, že aktuálne dáta sa v prípade zmien jednoducho aktualizujú bez zachovania historických záznamov.
 ```sql
+DROP TABLE IF EXISTS dim_names;
 CREATE TABLE dim_names AS
 SELECT DISTINCT
     n.id AS dim_names_id,
     n.name,
     n.date_of_birth,
-    r.category
+    CASE 
+        WHEN r.category = 'actor' THEN 'male'
+        WHEN r.category = 'actress' THEN 'female'
+        ELSE 'another'
+    END AS gender
 FROM names n
 JOIN role_mapping r ON n.id = r.name_id
 WHERE n.id IS NOT NULL
