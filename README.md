@@ -202,60 +202,7 @@ ORDER BY
   film_count DESC;
 ```
 
-Graf 1: Najviac hodnotené žánre (Top 5 žánrov)
-Táto vizualizácia zobrazuje 5 najčastejších žánrov filmov. Umožňuje identifikovať, ktoré žánre sú najpopulárnejšie medzi filmami v databáze. Zistíme napríklad, že žáner Drama má najväčší počet filmov. Tieto informácie môžu byť užitočné pri analýze trendov v preferenciách používateľov.
 
-sql
-Kopírovať kód
-SELECT
-  g.genre,
-  COUNT(DISTINCT b.dim_movie_id) AS film_count
-FROM
-  bridge AS b
-  JOIN sdim_genre AS g ON b.sdim_genre_id = g.sdim_genre_id
-GROUP BY
-  g.genre
-ORDER BY
-  film_count DESC
-LIMIT
-  5;
-Graf 2: Najviac hodnotené filmy (Top 10 filmov s najvyšším hodnotením)
-Táto vizualizácia ukazuje 10 filmov s najvyšším priemerným hodnotením. Tieto filmy sú obľúbené medzi divákmi a získali najlepšie hodnotenie. Zistíme, ktoré filmy sú najlepšie hodnotené a môžeme ich použiť ako odporúčania pre používateľov.
-
-sql
-Kopírovať kód
-SELECT
-  dm.title,
-  MAX(fr.avg_rating) AS max_avg_rating
-FROM
-  fact_ratings AS fr
-  JOIN dim_movie AS dm ON fr.dim_movie_id = dm.dim_movie_id
-GROUP BY
-  fr.dim_movie_id,
-  dm.title
-ORDER BY
-  max_avg_rating DESC
-LIMIT
-  10;
-Graf 3: Počet filmov podľa roku a krajiny
-Tento graf zobrazuje počet filmov vydaných v jednotlivých rokoch a krajinách. Umožňuje identifikovať trendy vo filmovej produkcii v rôznych geografických oblastiach a časových obdobiach.
-
-```sql
-Kopírovať kód
-SELECT
-  DATE_PART (YEAR, dim_movie.date_published) AS year,
-  dim_movie.country,
-  COUNT(DISTINCT dim_movie.dim_movie_id) AS film_count
-FROM
-  dim_movie
-GROUP BY
-  year,
-  country
-ORDER BY
-  year,
-  film_count DESC;
-
-```
 Graf 4: Priemerný počet hlasov podľa roku vydania
 Tento graf ukazuje priemerný počet hlasov na film v závislosti od roku vydania. Ukazuje, či existuje rastúci trend v počte hlasov, ktorý by mohol súvisieť s nárastom počtu používateľov hodnotiacich filmy.
 ```sql
