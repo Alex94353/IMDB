@@ -145,7 +145,7 @@ ETL proces umožnil transformáciu pôvodných dát z .csv formátov do viacdime
 Dashboard obsahuje **5 vizualizácií**, ktoré poskytujú základný prehľad o kľúčových metrikách a trendoch týkajúcich sa filmov, používateľov a hodnotení. Tieto vizualizácie odpovedajú na dôležité otázky a umožňujú lepšie pochopiť správanie používateľov a ich preferencie.
 
 <p align="center">
-  <img src="" alt="ERD Schema">
+  <img src="https://github.com/Alex94353/IMDB/blob/main/db.png?raw=true">
   <br>
   <em>Obrázok 3 Dashboard AmazonBooks datasetu</em>
 </p>
