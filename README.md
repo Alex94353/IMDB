@@ -165,6 +165,7 @@ LIMIT
   5;
 
 ```
+![image](https://github.com/user-attachments/assets/00ac9618-6d0b-4676-83e5-b75c84cffed5)
 
 Graf 2: Najviac hodnotené filmy (Top 10 filmov s najvyšším hodnotením)
 Táto vizualizácia ukazuje 10 filmov s najvyšším priemerným hodnotením. Tieto filmy sú obľúbené medzi divákmi a získali najlepšie hodnotenie. Zistíme, ktoré filmy sú najlepšie hodnotené a môžeme ich použiť ako odporúčania pre používateľov.
