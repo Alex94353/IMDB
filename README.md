@@ -185,6 +185,7 @@ LIMIT
   10;
 
 ```
+![image](https://github.com/user-attachments/assets/16497178-1e7c-41ab-ad61-f55eb783c572)
 
 Graf 3: Počet filmov podľa roku a krajiny
 Tento graf zobrazuje počet filmov vydaných v jednotlivých rokoch a krajinách. Umožňuje identifikovať trendy vo filmovej produkcii v rôznych geografických oblastiach a časových obdobiach.
@@ -202,6 +203,7 @@ ORDER BY
   year,
   film_count DESC;
 ```
+![image](https://github.com/user-attachments/assets/b3398fbd-649b-41fc-8551-9a47113898dc)
 
 
 Graf 4: Priemerný počet hlasov podľa roku vydania
@@ -219,6 +221,8 @@ GROUP BY
 ORDER BY
   year;
 ```
+![image](https://github.com/user-attachments/assets/d2998119-2605-40d5-b703-d2d8f2c497b4)
+
 Graf 5: Počet filmov a priemerné hodnotenie podľa krajiny
 Tento graf zobrazuje počet filmov a priemerné hodnotenie filmov v jednotlivých krajinách. Zistíme, ktoré krajiny majú najväčší počet filmov a ako sú hodnotené.
 
@@ -237,6 +241,8 @@ GROUP BY
 ORDER BY
   film_count DESC;
 ```
+![image](https://github.com/user-attachments/assets/41e2e22b-ac9f-4e0a-8d08-f30367e455d5)
+
 ---
 Dashboard poskytuje komplexný pohľad na dáta, pričom zodpovedá dôležité otázky týkajúce sa filmových preferencií a správania používateľov. Vizualizácie umožňujú jednoduchú interpretáciu dát a môžu byť využité na optimalizáciu odporúčacích systémov, marketingových stratégií a filmových služieb.
 
