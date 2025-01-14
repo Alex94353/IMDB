@@ -41,7 +41,7 @@ Navrhnutý bol **hviezdicový model (star schema)**,ktorý je efektívny pre ana
 Štruktúra hviezdicového modelu je znázornená na diagrame nižšie. Tento model zjednodušuje prepojenie faktovej tabuľky s dimenziami, čím zlepšuje efektivitu analýzy a pochopenie vzťahov medzi údajmi.
 
 <p align="center">
-  <img src="https://github.com/Alex94353/IMDB/blob/main/star_schema.png">
+  <img src="https://github.com/Alex94353/IMDB/blob/main/star_schema.png?raw=true">
   <br>
   <em>Obrázok 2 Schéma hviezdy pre IMDb</em>
 </p>
