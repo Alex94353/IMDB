@@ -35,8 +35,8 @@ Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na **e
 Navrhnutý bol **hviezdicový model (star schema)**,ktorý je efektívny pre analytické spracovanie údajov. Centrálne miesto zaujíma faktová tabuľka **`fact_ratings`**, ktorá je prepojená s nasledujúcimi dimenziami:
 - **`dim_movie`**: Obsahuje podrobné informácie o knihách (názov, autor, rok vydania, vydavateľ).
 - **`dim_names`**: Obsahuje demografické údaje o používateľoch, ako sú vekové kategórie, pohlavie, povolanie a vzdelanie.
-- **`sdim_genre`**: Špecifikuje žánre filmov, čo umožňuje analýzu popularity podľa žánrov.
-- **`bridge`**: Prepojuje filmy a žánre, aby sa umožnilo mapovanie viacerých žánrov na jeden film.
+- **`dim_genre`**: Obsahuje žánre filmov, čo umožňuje analýzu popularity podľa žánrov.
+- **`dim_date`**: obsahuje informácie o dátumoch, ktoré sú kľúčové pre časovú analýzu.
 
 Štruktúra hviezdicového modelu je znázornená na diagrame nižšie. Tento model zjednodušuje prepojenie faktovej tabuľky s dimenziami, čím zlepšuje efektivitu analýzy a pochopenie vzťahov medzi údajmi.
 
@@ -74,7 +74,7 @@ V prípade nekonzistentných záznamov bol použitý parameter `ON_ERROR = 'CONT
 
 V tejto fáze boli údaje z medzitabuliek vyčistené, transformované a obohatené. Hlavným cieľom bolo pripraviť dimenzie a faktovú tabuľku, ktoré umožňujú jednoduchú a efektívnu analýzu dát.
 
-Dimenzia dim_names bola vytvorená na poskytovanie kontextu pre faktovú tabuľku a zahŕňa informácie o menách, dátumoch narodenia a kategóriách osôb podľa ich pohlavia. Dáta boli očistené od záznamov s chýbajúcimi hodnotami. Kategorizácia pohlaví bola zabezpečená pomocou podmienok, kde boli jednotlivé kategórie actor a actress prevedené na hodnoty male a female. Pre ostatné prípady bola definovaná hodnota another.
+Dimenzia dim_names bola vytvorená na poskytovanie kontextu pre faktovú tabuľku a zahŕňa informácie o menách, dátumoch narodenia, výške a kategóriách osôb podľa ich pohlavia. Dáta boli očistené od záznamov s chýbajúcimi hodnotami. Kategorizácia pohlaví bola zabezpečená pomocou podmienok, kde boli kategórie "actor" a "actress" prevedené na hodnoty "actor_male" a "actor_female" a pre ostatné prípady bola definovaná hodnota "director".
 
 Táto dimenzia je typu SCD 1, čo znamená, že aktuálne dáta sa v prípade zmien jednoducho aktualizujú bez zachovania historických záznamov.
 ```sql
@@ -94,31 +94,31 @@ WHERE n.id IS NOT NULL
   AND n.known_for_movies IS NOT NULL;
 ```
 
-Podobne, dim_movie obsahuje informácie o filmoch, vrátane názvu, dátumu vydania, trvania, krajiny pôvodu, jazykov a produkčnej spoločnosti. Táto dimenzia je typu SCD Typ 0, pretože informácie o filmoch, ako názov, dátum vydania, trvanie a produkčná spoločnosť, sú považované za nemenné.
+Podobne, dimenzia dim_movie obsahuje informácie o filmoch, vrátane názvu, dátumu vydania, trvania, krajiny pôvodu, jazykov, produkčnej spoločnosti a celosvetového príjmu. Táto dimenzia je typu SCD Typ 0, pretože informácie o filmoch, ako názov, dátum vydania, trvanie a produkčná spoločnosť, sú považované za nemenné.
 
-Faktová tabuľka fact_ratings obsahuje záznamy o hodnoteniach a prepojenia na všetky dimenzie. Obsahuje kľúčové metriky, ako sú priemerné hodnotenie, celkový počet hlasov a medián hodnotení, pričom tieto hodnoty sú spojované s dimenziami podľa príslušných kľúčov.
+
+
+Faktová tabuľka fact_ratings obsahuje záznamy o hodnoteniach filmov a prepojenia na všetky dimenzie. Obsahuje kľúčové metriky, ako sú priemerné hodnotenie, celkový počet hlasov a medián hodnotení. Tieto hodnoty sú spojované s dimenziami dim_movie a dim_date na základe príslušných kľúčov dimenzií.
 ```sql
 DROP TABLE IF EXISTS fact_ratings;
-CREATE
-OR REPLACE TABLE fact_ratings AS
+CREATE TABLE fact_ratings AS
 SELECT
-  dm.dim_movie_id,
-  r.avg_rating,
-  r.total_votes,
-  r.median_rating,
-  n.dim_names_id
-FROM
-  ratings AS r
-  JOIN dim_movie AS dm ON r.movie_id = dm.dim_movie_id
-  JOIN bridge AS b ON dm.dim_movie_id = b.dim_movie_id
-  JOIN sdim_genre AS sg ON b.sdim_genre_id = sg.sdim_genre_id
-  JOIN dim_names AS n ON ARRAY_TO_STRING (n.known_for_movies, ',') LIKE '%' || dm.dim_movie_id || '%'
-WHERE
-  NOT r.movie_id IS NULL
-  AND NOT r.avg_rating IS NULL
-  AND NOT r.total_votes IS NULL
-  AND NOT r.median_rating IS NULL
-  AND NOT n.dim_names_id IS NULL;
+    DISTINCT ROW_NUMBER() OVER (ORDER BY movie_id) AS fact_rating_id,
+    dm.dim_movie_id,
+    r.avg_rating,
+    r.total_votes,
+    r.median_rating,
+    dd.dim_date_id
+FROM 
+    ratings r
+JOIN dim_movie dm 
+    ON r.movie_id = dm.dim_movie_id
+JOIN dim_date dd
+    ON dm.date_published = dd.date  
+WHERE 
+    r.avg_rating IS NOT NULL 
+    AND r.total_votes IS NOT NULL 
+    AND r.median_rating IS NOT NULL;
 ```
 
 ---
@@ -211,39 +211,41 @@ Tento graf ukazuje priemerný počet hlasov na film v závislosti od roku vydani
 ```sql
 SELECT
   DATE_PART(YEAR, dm.date_published) AS year,
-  AVG(r.total_votes) AS avg_votes
-FROM
-  dim_movie AS dm
-JOIN
-  ratings AS r ON dm.dim_movie_id = r.movie_id
-GROUP BY
-  year
-ORDER BY
-  year;
-```
-![image](https://github.com/user-attachments/assets/d2998119-2605-40d5-b703-d2d8f2c497b4)
-
-Graf 5: Počet filmov a priemerné hodnotenie podľa krajiny
-Tento graf zobrazuje počet filmov a priemerné hodnotenie filmov v jednotlivých krajinách. Zistíme, ktoré krajiny majú najväčší počet filmov a ako sú hodnotené.
-
-```sql
-SELECT
-  dm.country,
-  COUNT(DISTINCT dm.dim_movie_id) AS film_count,
-  AVG(fr.avg_rating) AS avg_rating,
-  AVG(fr.median_rating) AS median_rating
+  AVG(fr.total_votes) AS avg_votes  
 FROM
   dim_movie AS dm
 JOIN
   fact_ratings AS fr ON dm.dim_movie_id = fr.dim_movie_id
 GROUP BY
-  dm.country
+  year
 ORDER BY
-  film_count DESC;
+  year;
 ```
-![image](https://github.com/user-attachments/assets/41e2e22b-ac9f-4e0a-8d08-f30367e455d5)
+![image](https://github.com/user-attachments/assets/5f3f13a4-95df-44d3-9656-b2164f570a85)
+
+
+Graf 5: Tri najlepšie žánre podľa celosvetových príjmov
+Tento graf zobrazuje tri žánre, ktoré generujú najvyššie celosvetové príjmy. Cieľom je identifikovať, ktoré žánre dosahujú najvyššie príjmy a porovnať ich výkonnosť v rámci celosvetového trhu.
+```sql
+SELECT
+  dg.genre,
+  SUM(CAST(REGEXP_REPLACE(dm.worldwide_gross_income, '^[^0-9]*', '') AS DECIMAL(18,2))) AS total_worldwide_income
+FROM
+  dim_genre AS dg
+JOIN
+  bridge_genre_movie AS bgm ON dg.dim_genre_id = bgm.dim_genre_id  -- исправлено имя столбца
+JOIN
+  dim_movie AS dm ON bgm.dim_movie_id = dm.dim_movie_id
+GROUP BY
+  dg.genre
+ORDER BY
+  total_worldwide_income DESC
+LIMIT 3;
+```
+![image](https://github.com/user-attachments/assets/85c2fbba-fc9a-4388-963a-2703929f25f5)
+
 
 ---
 Dashboard poskytuje komplexný pohľad na dáta, pričom zodpovedá dôležité otázky týkajúce sa filmových preferencií a správania používateľov. Vizualizácie umožňujú jednoduchú interpretáciu dát a môžu byť využité na optimalizáciu odporúčacích systémov, marketingových stratégií a filmových služieb.
 
-created at Aleksei Bykov
+author: Aleksei Bykov
