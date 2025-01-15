@@ -233,7 +233,7 @@ SELECT
 FROM
   dim_genre AS dg
 JOIN
-  bridge_genre_movie AS bgm ON dg.dim_genre_id = bgm.dim_genre_id  -- исправлено имя столбца
+  bridge_genre_movie AS bgm ON dg.dim_genre_id = bgm.dim_genre_id 
 JOIN
   dim_movie AS dm ON bgm.dim_movie_id = dm.dim_movie_id
 GROUP BY
