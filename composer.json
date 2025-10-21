@@ -1,0 +1,1 @@
+{\n  "require": {\n    "laravel/framework": "^8.0",\n    "fideloper/proxy": "^4.4",\n    "fruitcake/laravel-cors": "^2.0",\n    "laravel/tinker": "^2.0"\n  }\n}
